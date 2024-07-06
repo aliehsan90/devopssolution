@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: energi-node
+spec:
+  serviceName: "energi"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: energi-node
+  template:
+    metadata:
+      labels:
+        app: energi-node
+    spec:
+      containers:
+      - name: energi-node
+        image:  public.ecr.aws/w9s4r9v3/energi-node-ecr:latest # Replace with your actual image name and tag
+        ports:
+        - containerPort: 39796
+          name: p2p
+        - containerPort: 39795
+          name: rpc
+        command: ["./energi3"]
+        args: ["--nousb"]
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        volumeMounts:
+        - name: energi-data
+          mountPath: /home/energiuser/.energicore3
+  volumeClaimTemplates:
+  - metadata:
+      name: energi-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi  # Adjust based on your needs
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: energi-node
+spec:
+  selector:
+    app: energi-node
+  ports:
+    - protocol: TCP
+      port: 39796
+      targetPort: 39796
+      name: p2p
+    - protocol: TCP
+      port: 39795
+      targetPort: 39795
+      name: rpc

@@ -1,0 +1,55 @@
+
+pipeline {
+    agent {
+        label 'linux'
+    }
+
+    environment {
+        ECR_REPO = '590184010003.dkr.ecr.us-west-2.amazonaws.com/energi-node-ecr'
+        AWS_REGION = 'us-west-2'
+        REMOTE_HOST = '54.215.235.217'
+        REMOTE_USER = 'ec2-user'
+        REMOTE_WORKDIR = '/home/ubuntu/energi-node'
+    }
+
+    stages {
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    // SSH commands to execute on the remote server
+                    def sshCommands = """
+                        cd ${REMOTE_WORKDIR}
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
+                        sudo docker build -t energi-node-ecr .
+                        sudo docker tag energi-node-ecr:latest ${ECR_REPO}:latest
+                        sudo docker push ${ECR_REPO}:latest
+                    """
+                    
+                    // Execute SSH commands
+                    sshScript(sshCommands)
+                }
+            }
+        }
+
+        stage('Deploy Docker Image') {
+            steps {
+                script {
+                    // SSH commands to deploy Docker image on the remote server
+                    def deployCommands = """
+                        sudo docker pull ${ECR_REPO}:latest
+                        sudo docker run -d -p 39796:39796 -p 39795:39795 ${ECR_REPO}:latest
+                    """
+                    
+                    // Execute SSH commands
+                    sshScript(deployCommands)
+                }
+            }
+        }
+    }
+}
+
+def sshScript(String script) {
+    sh "ssh ${REMOTE_USER}@${REMOTE_HOST} << 'EOF'\n${script}\nEOF"
+}
+
+
